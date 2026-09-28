@@ -1,0 +1,221 @@
+class Cuenta:
+    def __init__(self, Titular, Numero_Cuenta):
+        self.Titular=Titular
+        self.Numero_Cuenta=Numero_Cuenta
+        self.__Saldo=0
+        self.Tipo_Cuenta=None
+
+    def ObtenerInformacionBasica(self):
+        return f"Titular:{self.Titular}/ N° Cuenta{self.Numero_Cuenta}"
+
+    def ConsultarSaldo(self):
+        return self.__Saldo
+
+    def Depositar(self, monto):
+        self.__Saldo+=monto
+
+    def Girar(self, monto, LimiteSobregiro=0):
+        if monto<1:
+            return "El monto debe ser uno positivo"
+
+        if self.__Saldo-monto<-LimiteSobregiro:
+            return "El monto exede los fondos disponibles en el Saldo"
+
+        self.__Saldo-=monto
+
+    def __str__(self):
+        return f"{self.Titular} {self.Numero_Cuenta}  {self.Tipo_Cuenta}"
+
+class CuentaDeAhorro(Cuenta):
+    def __init__(self, Titular, Numero_Cuenta, TasaInteres):
+        super().__init__(Titular, Numero_Cuenta)
+        self.Tipo_Cuenta="Ahorro"
+        self.TasaInteres=TasaInteres
+
+    def AplicarIntereses(self):
+        Interes=self.ConsultarSaldo()*(self.TasaInteres/100)
+        self.Depositar(Interes)
+
+    def ObtenerInformacionBasica(self):
+        info_padre=super().ObtenerInformacionBasica()
+        return f"[Cuenta de Ahorro] {info_padre} / Tasa Interes {self.TasaInteres}"
+
+class CuentaCorriente(Cuenta):
+    def __init__(self, Titular, Numero_Cuenta, LimiteGiro=50000):
+        super().__init__(Titular, Numero_Cuenta)
+        self.Tipo_Cuenta="Corriente"
+        self.LimiteGiro=LimiteGiro
+
+    def girar(self, monto):
+        super().Girar(monto, LimiteSobregiro=self.LimiteGiro)
+
+    def ObtenerInformacionBasica(self):
+        info_padre=super().ObtenerInformacionBasica()
+        return f"[Cuenta Corriente] {info_padre} / Limite Giro {self.LimiteGiro}"
+
+class Banco:
+    def __init__(self, Nombre):
+        self.Nombre=Nombre
+        self.Cuentas=[]
+
+    def Abrir_Cuenta(self, cuenta):
+        for valor in self.Cuentas:
+            if valor.Numero_Cuenta==cuenta.Numero_Cuenta:
+                return "La Cuenta ya existe"
+        self.Cuentas.append(cuenta)
+
+    def BuscarCuenta(self, Numero_Cuenta):
+        for cuenta in self.Cuentas:
+            if cuenta.Numero_Cuenta==Numero_Cuenta:
+                return cuenta
+        return None
+
+    def Transferir(self, Numero_Origen, Numero_Destino, monto):
+        if monto<=0:
+            return "No se puede transferir una cantidad vacia o negativa"
+
+        Cuenta_Origen=self.BuscarCuenta(Numero_Origen)
+        if Cuenta_Origen==None:
+            return f"La cuenta de origen N°{Numero_Origen} no existe"
+
+        Cuenta_Destinatario=self.BuscarCuenta(Numero_Destino)
+        if Cuenta_Destinatario==None:
+            return f"La cuenta del destinatario N°{Numero_Destino} no existe"
+
+        Cuenta_Origen.Girar(monto)
+        Cuenta_Destinatario.Depositar(monto)
+
+    def Mostrar_Cuentas(self):
+        if not self.Cuentas:
+            return "El Banco no tiene cuentas en existencia"
+
+        cuentas=sorted(self.Cuentas, key=lambda c: c.Numero_Cuenta)
+
+        for cuenta in cuentas:
+            print(cuenta.ObtenerInformacionBasica())
+
+def preprocesar_cuentas(lista_cuentas):
+    cuentas_limpias=[]
+    numeros_registrados=set()
+
+    for c in lista_cuentas:
+        try:#esta cosa de aqui ejecuta procesos de forma continua en un orden establecido
+            if "Titular" not in c or "Numero_Cuenta" not in c:
+                continue
+            
+            titular=str(c["Titular"]).strip().title()
+            if not titular:
+                continue  
+            
+            num_cuenta=int(str(c["Numero_Cuenta"]).strip())
+            if num_cuenta in numeros_registrados:
+                continue  
+            
+            saldo_init=int(str(c.get("Saldo_Inicial", 0)).strip())
+            if saldo_init<0:
+                continue  
+            
+            tipo=str(c.get("Tipo_Cuenta", "")).strip().capitalize()
+            if tipo not in ["Ahorro", "Corriente"]:
+                continue
+            
+            registro_limpio={
+                "Titular": titular,
+                "Numero_Cuenta": num_cuenta,
+                "Saldo_Inicial": saldo_init,
+                "Tipo_Cuenta": tipo}
+            
+            if tipo=="Ahorro":
+                try:
+                    tasa=float(c.get("TasaInteres", 0.5))
+                    registro_limpio["TasaInteres"]=tasa if tasa>=0 else 0.5
+                except (ValueError, TypeError):
+                    registro_limpio["TasaInteres"]=0.5
+
+            elif tipo=="Corriente":
+                try:
+                    limite=int(c.get("LimiteGiro", 100000))
+                    registro_limpio["LimiteGiro"]=limite if limite>=0 else 100000
+                except (ValueError, TypeError):
+                    registro_limpio["LimiteGiro"]=100000
+            
+            numeros_registrados.add(num_cuenta)
+            cuentas_limpias.append(registro_limpio)
+
+        except (ValueError, TypeError):
+            continue
+
+    return cuentas_limpias
+
+DatosdePrueba=[
+    {"Titular":"ana pérez ", "Numero_Cuenta": "101", "Saldo_Inicial": "50000", "Tipo_Cuenta": "ahorro", "TasaInteres": "1.5"},
+    {"Titular": "DYLAN MATIAS NICOLAS OYARZUN", "Numero_Cuenta": 102, "Saldo_Inicial": 200000, "Tipo_Cuenta": "CORRIENTE", "LimiteGiro": "150000"},
+    {"Titular": "maria silva", "Numero_Cuenta": "103", "Saldo_Inicial": 0, "Tipo_Cuenta": "Ahorro"},
+    {"Titular": "Carlos Gomez", "Numero_Cuenta": 104, "Saldo_Inicial": 100000, "Tipo_Cuenta": "Corriente"},
+    {"Titular": "  roberto diaz ", "Numero_Cuenta": "105", "Saldo_Inicial": "30000", "Tipo_Cuenta": "Ahorro", "TasaInteres": 2.0},
+    {"Titular": "LAURA MORALES", "Numero_Cuenta": 106, "Saldo_Inicial": 450000, "Tipo_Cuenta": "corriente", "LimiteGiro": 200000},
+    {"Titular": "Pedro Tapia", "Numero_Cuenta": "107", "Saldo_Inicial": "15000", "Tipo_Cuenta": "ahorro"},
+    {"Titular": "Sofia Castro", "Numero_Cuenta": 108, "Saldo_Inicial": 80000, "Tipo_Cuenta": "Corriente", "LimiteGiro": "80000"},
+    {"Titular": "diego soto", "Numero_Cuenta": "109", "Saldo_Inicial": "120000", "Tipo_Cuenta": "Ahorro", "TasaInteres": "0.8"},
+    {"Titular": "Valentina Vera", "Numero_Cuenta": 110, "Saldo_Inicial": 500000, "Tipo_Cuenta": "Corriente"},
+
+    {"Titular": "Esteban Quito", "Numero_Cuenta": "101", "Saldo_Inicial": 5000, "Tipo_Cuenta": "Ahorro"},
+    {"Titular": "  ", "Numero_Cuenta": "111", "Saldo_Inicial": 10000, "Tipo_Cuenta": "Ahorro"},
+    {"Titular": "Hugo Boss", "Numero_Cuenta": "112", "Saldo_Inicial": "-50000", "Tipo_Cuenta": "Corriente"},
+    {"Titular": "Marta Sanchez", "Numero_Cuenta": "XYZ", "Saldo_Inicial": 20000, "Tipo_Cuenta": "Ahorro"},
+    {"Titular": "Claudio Bravo", "Numero_Cuenta": "113", "Saldo_Inicial": 10000, "Tipo_Cuenta": "Inversion"},
+    {"Numero_Cuenta": "114", "Saldo_Inicial": 10000, "Tipo_Cuenta": "Ahorro"},
+
+    {"Titular": "camila muñoz", "Numero_Cuenta": "115", "Saldo_Inicial": "60000", "Tipo_Cuenta": "ahorro", "TasaInteres": "1.2"},
+    {"Titular": "FERNANDO RIOS", "Numero_Cuenta": 116, "Saldo_Inicial": 300000, "Tipo_Cuenta": "Corriente", "LimiteGiro": "120000"},
+    {"Titular": "Daniela Reyes", "Numero_Cuenta": "117", "Saldo_Inicial": 0, "Tipo_Cuenta": "Ahorro", "TasaInteres": "0.5"}]
+
+print(" procesando los regitros de las cuentas ")
+DatosProcesados = preprocesar_cuentas(DatosdePrueba)
+print(f"Registros recibidos: {len(DatosdePrueba)} | Registros limpios aceptados: {len(DatosProcesados)}\n")
+
+MiBanco=Banco("Banco Magallanes")
+
+for d in DatosProcesados:
+    if d["Tipo_Cuenta"]=="Ahorro":
+        CuentaNueva=CuentaDeAhorro(d["Titular"], d["Numero_Cuenta"], d["TasaInteres"])
+    else:
+        CuentaNueva=CuentaCorriente(d["Titular"], d["Numero_Cuenta"], d["LimiteGiro"])
+    
+    if d["Saldo_Inicial"]>0:
+        CuentaNueva.Depositar(d["Saldo_Inicial"])
+    
+  
+    MiBanco.Abrir_Cuenta(CuentaNueva)
+
+print("estado inicial de las cuentas")
+MiBanco.Mostrar_Cuentas()
+
+print("\n ejecucion de las pruebas operacionales ")
+
+Cuenta101=MiBanco.BuscarCuenta(101)
+if Cuenta101:
+    print(f"\n1. Saldo inicial cuenta 101: ${Cuenta101.ConsultarSaldo()}")
+    Cuenta101.Depositar(25000)
+    print(f"   Saldo tras depósito de $25.000: ${Cuenta101.ConsultarSaldo()}")
+
+if isinstance(Cuenta101, CuentaDeAhorro):
+    Cuenta101.AplicarIntereses()
+    print(f"   Saldo tras aplicar tasa de interés ({Cuenta101.TasaInteres}%): ${Cuenta101.ConsultarSaldo()}")
+
+Cuenta102=MiBanco.BuscarCuenta(102)
+if Cuenta102:
+    print(f"\n2. Saldo inicial cuenta corriente 102: ${Cuenta102.ConsultarSaldo()}")
+    print(f"   Límite de giro permitido: ${Cuenta102.LimiteGiro}")
+    Cuenta102.girar(250000)
+    print(f"   Saldo tras giro de $250.000 (sobregiro): ${Cuenta102.ConsultarSaldo()}")
+
+print(f"\n3. Ejecutando transferencia de $10.000 de Cuenta 101 a Cuenta 102...")
+resultado=MiBanco.Transferir(101, 102, 10000)
+if resultado:
+    print(f"   Resultado: {resultado}")
+print(f"   Nuevo saldo Cuenta 101: ${Cuenta101.ConsultarSaldo()}")
+print(f"   Nuevo saldo Cuenta 102: ${Cuenta102.ConsultarSaldo()}")
+
+print("\n estado final de las cuentas de banco ")
+MiBanco.Mostrar_Cuentas()
